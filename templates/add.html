@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加面试题</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+
+        h1 {
+            color: #28a745;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        textarea {
+            resize: vertical;
+            height: 100px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #28a745;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .checkbox-group {
+            margin: 15px 0;
+        }
+
+        .checkbox-group label {
+            display: inline-block;
+            margin-right: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .custom-tag-container {
+            margin-top: 15px;
+        }
+
+        .custom-tag-container input[type="text"] {
+            width: calc(100% - 100px);
+            display: inline-block;
+        }
+
+        .custom-tag-container button {
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        .checkbox-group {
+            margin: 15px 0;
+        }
+
+        .checkbox-group label {
+            display: inline-block;
+            margin-right: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* 确保 existing-labels 以横向显示 */
+        #existing-labels {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        #existing-labels label {
+            display: inline-block;
+        }
+
+        h1 {
+            color: #007bff;
+            text-align: center; /* 居中对齐标题 */
+            margin-bottom: 20px; /* 增加标题下方的间距 */
+
+    </style>
+</head>
+<body>
+<h1>添加面试题</h1>
+<form id="add-form" action="/add" method="post">
+    <div class="form-group">
+        <label for="question">面试题目：</label>
+        <input type="text" id="question" name="question" required>
+    </div>
+    <div class="form-group">
+        <label for="answer">标准答案：</label>
+        <textarea id="answer" name="answer" required></textarea>
+    </div>
+    <div class="form-group">
+        <label>选择标签：</label>
+        <div id="existing-labels"></div>
+    </div>
+    <div class="form-group">
+        <label for="custom_labels">自定义标签（用逗号分隔）：</label>
+        <input type="text" id="custom_labels" name="custom_labels">
+    </div>
+    <button type="submit">提交</button>
+    <button class="btn view-btn" onclick="window.location.href='/'">返回主页</button>
+</form>
+<script>
+    // 监听回车键按下后执行搜索
+    document.getElementById('search-input').addEventListener('keyup', function(event) {
+        if (event.key === 'Enter') {
+            searchTable(); // 只在按下回车时调用搜索函数
+        }
+    });
+
+    function searchTable() {
+        const input = document.getElementById('search-input');
+        const query = input.value.trim();
+
+        if (query === '') {
+            // 如果搜索框为空，恢复表格显示所有问题
+            fetchAllQuestions();
+            return;
+        }
+
+        // 发起搜索请求
+        fetch(`/search?query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.querySelector('table tbody');
+                tbody.innerHTML = ''; // 清空现有表格
+
+                if (data.length > 0) {
+                    // 如果有匹配结果，渲染表格
+                    data.forEach(question => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                        <td>${question.id}</td>
+                        <td>${question.question}</td>
+                        <td>${question.answer}</td>
+                        <td>${question.labels.join(', ')}</td>
+                    `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    // 如果没有匹配结果，显示弹窗并恢复表格
+                    alert('没有找到匹配结果');
+                    fetchAllQuestions(); // 恢复显示所有问题
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching search results:', error);
+                alert('搜索过程中出现错误，请稍后重试。'); // 如果出现错误，提示用户
+            });
+    }
+
+    function fetchAllQuestions() {
+        // 获取并显示所有问题
+        fetch(`/view`)
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.querySelector('table tbody');
+                tbody.innerHTML = ''; // 清空现有表格
+
+                // 渲染所有问题
+                data.forEach(question => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                    <td>${question.id}</td>
+                    <td>${question.question}</td>
+                    <td>${question.answer}</td>
+                    <td>${question.labels.join(', ')}</td>
+                `;
+                    tbody.appendChild(row);
+                });
+            })
+            .catch(error => console.error('Error fetching all questions:', error));
+    }
+</script>
+
+</body>
+</html>

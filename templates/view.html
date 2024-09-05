@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浏览面试题</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+
+        h1 {
+            color: #007bff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn {
+            padding: 10px 40px;
+            font-size: 18px;
+            color: green;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            left: -10px;
+        }
+
+        .add-btn {
+            background-color: #28a745;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+        }
+
+        .search-container input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: #007bff;
+            text-align: center; /* 居中对齐标题 */
+            margin-bottom: 20px; /* 增加标题下方的间距 */
+        }
+
+    </style>
+</head>
+<body>
+<h1>浏览面试题</h1>
+<div class="search-container">
+    <input type="text" id="search-input" placeholder="搜索面试题或标签..." onkeyup="searchTable()">
+</div>
+
+<table>
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>面试题目</th>
+        <th>标准答案</th>
+        <th>标签</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for question in questions %}
+        <tr>
+            <td>{{ question.id }}</td>
+            <td>{{ question.question }}</td>
+            <td>{{ question.answer }}</td>
+            <td>{{ question.labels }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<button class="btn view-btn" onclick="window.location.href='/'">返回主页</button>
+</body>
+<script>
+    // 监听回车键按下后执行搜索
+    document.getElementById('search-input').addEventListener('keyup', function(event) {
+        if (event.key === 'Enter') {
+            searchTable();  // 只有按下回车键才执行搜索
+        }
+    });
+
+    function searchTable() {
+        const input = document.getElementById('search-input');
+        const query = input.value.trim();
+
+        if (query === '') {
+            // 如果搜索框为空，恢复表格显示所有问题
+            fetchAllQuestions();
+            return;
+        }
+
+        fetch(`/search?query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.querySelector('table tbody');
+                tbody.innerHTML = ''; // 清空现有表格
+
+                if (data.length > 0) {
+                    data.forEach(question => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                        <td>${question.id}</td>
+                        <td>${question.question}</td>
+                        <td>${question.answer}</td>
+                        <td>${question.labels.join(', ')}</td>
+                    `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    // 如果没有找到匹配结果，显示弹窗并恢复表格
+                    alert('没有找到匹配结果');
+                    fetchAllQuestions();
+                }
+            })
+            .catch(error => console.error('Error fetching search results:', error));
+    }
+
+    function fetchAllQuestions() {
+        fetch(`/view`)
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.querySelector('table tbody');
+                tbody.innerHTML = ''; // 清空现有表格
+
+                data.forEach(question => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                    <td>${question.id}</td>
+                    <td>${question.question}</td>
+                    <td>${question.answer}</td>
+                    <td>${question.labels.join(', ')}</td>
+                `;
+                    tbody.appendChild(row);
+                });
+            })
+            .catch(error => console.error('Error fetching all questions:', error));
+    }
+</script>
+
+
+
+</html>
