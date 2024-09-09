@@ -14,11 +14,13 @@
 
         h1 {
             color: #007bff;
+            text-align: center;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
+            margin-top: 20px;
         }
 
         table, th, td {
@@ -36,18 +38,18 @@
         }
 
         .btn {
-            padding: 10px 40px;
-            font-size: 18px;
-            color: green;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #28a745;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             margin: 10px;
-            left: -10px;
         }
 
-        .add-btn {
-            background-color: #28a745;
+        .btn:hover {
+            background-color: #218838;
         }
 
         .search-container {
@@ -63,19 +65,26 @@
             box-sizing: border-box;
         }
 
-        h1 {
-            color: #007bff;
-            text-align: center; /* 居中对齐标题 */
-            margin-bottom: 20px; /* 增加标题下方的间距 */
+        .pagination-container {
+            text-align: center;
+            margin-top: 20px;
         }
 
+        .error-message {
+            color: red;
+            text-align: center;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 <h1>浏览面试题</h1>
+
 <div class="search-container">
-    <input type="text" id="search-input" placeholder="搜索面试题或标签..." onkeyup="searchTable()">
+    <input type="text" id="search-input" placeholder="搜索面试题或标签...按回车开始搜索" onkeyup="searchTable(event)">
 </div>
+
+<div id="error-message" class="error-message"></div>
 
 <table>
     <thead>
@@ -86,85 +95,102 @@
         <th>标签</th>
     </tr>
     </thead>
-    <tbody>
-    {% for question in questions %}
-        <tr>
-            <td>{{ question.id }}</td>
-            <td>{{ question.question }}</td>
-            <td>{{ question.answer }}</td>
-            <td>{{ question.labels }}</td>
-        </tr>
-    {% endfor %}
+    <tbody id="questions-tbody">
+    <!-- 数据行会通过 JavaScript 插入 -->
     </tbody>
 </table>
-<button class="btn view-btn" onclick="window.location.href='/'">返回主页</button>
-</body>
+
+<div class="pagination-container">
+    <button id="prev-btn" class="btn" onclick="loadPrevPage()" disabled>上一页</button>
+    <button id="next-btn" class="btn" onclick="loadNextPage()" disabled>下一页</button>
+</div>
+
 <script>
-    // 监听回车键按下后执行搜索
-    document.getElementById('search-input').addEventListener('keyup', function(event) {
-        if (event.key === 'Enter') {
-            searchTable();  // 只有按下回车键才执行搜索
-        }
+    let currentPage = 1;
+    let totalPages = 1;
+    let query = '';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPageData(currentPage);
     });
 
-    function searchTable() {
-        const input = document.getElementById('search-input');
-        const query = input.value.trim();
+    // 加载数据并更新表格
+    function loadPageData(page, isSearch = false) {
+        const url = isSearch
+            ? `/api/search?query=${encodeURIComponent(query)}&page=${page}&limit=10`
+            : `/api/view?page=${page}&limit=10`;
 
-        if (query === '') {
-            // 如果搜索框为空，恢复表格显示所有问题
-            fetchAllQuestions();
-            return;
-        }
-
-        fetch(`/search?query=${encodeURIComponent(query)}`)
+        fetch(url)
             .then(response => response.json())
             .then(data => {
-                const tbody = document.querySelector('table tbody');
-                tbody.innerHTML = ''; // 清空现有表格
+                const tbody = document.getElementById('questions-tbody');
+                tbody.innerHTML = '';
 
-                if (data.length > 0) {
-                    data.forEach(question => {
+                if (data.questions.length === 0) {
+                    document.getElementById('error-message').textContent = '未找到匹配的面试题';
+                } else {
+                    document.getElementById('error-message').textContent = '';
+
+                    // 动态创建表格行
+                    data.questions.forEach(question => {
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                        <td>${question.id}</td>
-                        <td>${question.question}</td>
-                        <td>${question.answer}</td>
-                        <td>${question.labels.join(', ')}</td>
-                    `;
+                            <td>${question.id}</td>
+                            <td>${question.question}</td>
+                            <td>${question.answer}</td>
+                            <td>${question.labels.join(', ')}</td>
+                        `;
                         tbody.appendChild(row);
                     });
-                } else {
-                    // 如果没有找到匹配结果，显示弹窗并恢复表格
-                    alert('没有找到匹配结果');
-                    fetchAllQuestions();
+
+                    // 更新分页按钮
+                    totalPages = data.pages;
+                    currentPage = data.page;
+                    updatePaginationButtons();
                 }
             })
-            .catch(error => console.error('Error fetching search results:', error));
+            .catch(error => {
+                console.error('Error loading page:', error);
+                document.getElementById('error-message').textContent = '加载数据失败';
+            });
     }
 
-    function fetchAllQuestions() {
-        fetch(`/view`)
-            .then(response => response.json())
-            .then(data => {
-                const tbody = document.querySelector('table tbody');
-                tbody.innerHTML = ''; // 清空现有表格
+    // 搜索功能
+    function searchTable(event) {
+        if (event.key === 'Enter') { // 只在按下回车键时搜索
+            query = document.getElementById('search-input').value.trim();
+            currentPage = 1;
 
-                data.forEach(question => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                    <td>${question.id}</td>
-                    <td>${question.question}</td>
-                    <td>${question.answer}</td>
-                    <td>${question.labels.join(', ')}</td>
-                `;
-                    tbody.appendChild(row);
-                });
-            })
-            .catch(error => console.error('Error fetching all questions:', error));
+            if (!query) {
+                loadPageData(currentPage);  // 没有查询时加载所有数据
+            } else {
+                loadPageData(currentPage, true);  // 进行搜索
+            }
+        }
+    }
+
+    // 加载上一页
+    function loadPrevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            loadPageData(currentPage, query !== '');
+        }
+    }
+
+    // 加载下一页
+    function loadNextPage() {
+        if (currentPage < totalPages) {
+            currentPage++;
+            loadPageData(currentPage, query !== '');
+        }
+    }
+
+    // 更新分页按钮状态
+    function updatePaginationButtons() {
+        document.getElementById('prev-btn').disabled = currentPage === 1;
+        document.getElementById('next-btn').disabled = currentPage >= totalPages;
     }
 </script>
 
-
-
+</body>
 </html>

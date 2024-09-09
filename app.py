@@ -10,6 +10,7 @@ db.init_app(app)
 # 使用一个标志位来确保 `create_tables` 只执行一次
 tables_created = False
 
+
 @app.before_request
 def create_tables():
     global tables_created
@@ -18,10 +19,14 @@ def create_tables():
             db.create_all()
         tables_created = True
 
-@app.route('/')
-def index():
-    return render_template('index.html')
 
+# 显示浏览面试题的页面
+@app.route('/interview')
+def index():
+    return render_template('index.html')  # 这里渲染模板 HTML 页面
+
+
+# 添加面试题
 @app.route('/add', methods=['GET', 'POST'])
 def add_question():
     if request.method == 'POST':
@@ -70,6 +75,8 @@ def add_question():
     labels = Label.query.all()
     return render_template('add.html', labels=labels)
 
+
+# 获取标签
 @app.route('/get_labels', methods=['GET'])
 def get_labels():
     try:
@@ -81,22 +88,55 @@ def get_labels():
 
 
 @app.route('/view')
+def view_page():
+    return render_template('view.html')  # 渲染 HTML 模板，前端由 JavaScript 加载数据
+
+
+# 分页查看面试题，返回 JSON 数据
+@app.route('/api/view', methods=['GET'])
 def view_questions():
-    questions = Question.query.all()  # 获取所有问题
-    return render_template('view.html', questions=questions)
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('limit', 10, type=int)
+    pagination = Question.query.paginate(page=page, per_page=per_page, error_out=False)
+
+    questions = pagination.items
+    results = []
+    for question in questions:
+        results.append({
+            'id': question.id,
+            'question': question.question,
+            'answer': question.answer,
+            'labels': question.labels.split(',') if question.labels else []
+        })
+
+    return jsonify({
+        'questions': results,
+        'total': pagination.total,
+        'page': pagination.page,
+        'pages': pagination.pages,
+        'has_prev': pagination.has_prev,
+        'has_next': pagination.has_next,
+    })
 
 
-@app.route('/search', methods=['GET'])
+# 搜索面试题，支持分页，返回 JSON 数据
+@app.route('/api/search', methods=['GET'])
 def search_questions():
     query = request.args.get('query', '')  # 获取查询参数
+    page = request.args.get('page', 1, type=int)  # 获取页码，默认为1
+    per_page = request.args.get('limit', 10, type=int)  # 每页显示数量，默认为10
+
     if not query:
         return jsonify([])  # 如果查询为空，返回空列表
 
     # 执行查询，根据面试题目或标签进行筛选
     search_query = f"%{query}%"
-    questions = Question.query.filter(
+    pagination = Question.query.filter(
         (Question.question.ilike(search_query)) | (Question.labels.ilike(search_query))
-    ).all()
+    ).paginate(page=page, per_page=per_page, error_out=False)  # 分页查询
+
+    # 获取当前页的记录
+    questions = pagination.items
 
     # 将结果转换为JSON格式返回
     results = []
@@ -108,8 +148,15 @@ def search_questions():
             'labels': question.labels.split(',') if question.labels else []
         })
 
-    return jsonify(results)
+    return jsonify({
+        'questions': results,
+        'total': pagination.total,  # 总记录数
+        'page': pagination.page,  # 当前页码
+        'pages': pagination.pages,  # 总页数
+        'has_prev': pagination.has_prev,
+        'has_next': pagination.has_next,
+    })
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='127.0.0.1', port=8003)
